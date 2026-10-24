@@ -1,0 +1,895 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LogiTrack · Seguimiento de paquetes</title>
+
+<style>
+:root {
+  --navy:#142b4b;
+  --blue:#1677e8;
+  --pale:#eef5ff;
+  --ink:#183153;
+  --muted:#6b7f99;
+  --line:#dce6f2;
+  --green:#1ca765;
+  --orange:#ed9b24;
+  --red:#d94350;
+}
+
+* { box-sizing:border-box; }
+
+body {
+  margin:0;
+  background:#f4f7fb;
+  color:var(--ink);
+  font:14px/1.45 Inter,Segoe UI,Arial,sans-serif;
+}
+
+.app {
+  display:grid;
+  grid-template-columns:220px 1fr;
+  min-height:100vh;
+}
+
+.sidebar {
+  background:linear-gradient(180deg,#172f50,#10233d);
+  color:#dce9fa;
+  padding:22px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:28px;
+}
+
+.brand {
+  font-size:20px;
+  font-weight:750;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 8px;
+}
+
+.brand-icon {
+  display:grid;
+  place-items:center;
+  background:#fff;
+  color:var(--blue);
+  width:35px;
+  height:35px;
+  border-radius:10px;
+  font-size:21px;
+}
+
+.brand small {
+  display:block;
+  font-size:11px;
+  font-weight:400;
+  color:#b5c8e1;
+}
+
+.nav {
+  display:grid;
+  gap:7px;
+}
+
+.nav button {
+  background:transparent;
+  border:0;
+  color:#dce9fa;
+  text-align:left;
+  padding:12px;
+  border-radius:8px;
+  font-size:14px;
+  cursor:pointer;
+}
+
+.nav button.active,
+.nav button:hover {
+  background:#2b4e7d;
+}
+
+.main {
+  padding:24px;
+  min-width:0;
+}
+
+.topbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:20px;
+}
+
+.topbar h1 {
+  margin:0;
+  font-size:25px;
+}
+
+.panel {
+  background:white;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:16px;
+  box-shadow:0 2px 7px #19365b05;
+}
+
+.summary {
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.metric {
+  border-right:1px solid var(--line);
+  padding:5px 12px;
+}
+
+.metric:last-child { border:0; }
+
+.label {
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:5px;
+}
+
+.value {
+  font-size:18px;
+  font-weight:750;
+}
+
+.sub {
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
+}
+
+.pill {
+  display:inline-block;
+  border-radius:30px;
+  padding:5px 10px;
+  background:#e7f8ef;
+  color:#14834f;
+  font-weight:650;
+  font-size:12px;
+}
+
+.layout {
+  display:grid;
+  grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr);
+  gap:16px;
+}
+
+.leftcol,
+.rightcol {
+  display:grid;
+  gap:14px;
+  align-content:start;
+}
+
+.panel h2 {
+  font-size:16px;
+  margin:0 0 13px;
+}
+
+.map {
+  height:270px;
+  border-radius:8px;
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(140deg,#eaf1e5,#f7f5e9 40%,#e4f2f8);
+  border:1px solid #e1e9df;
+}
+
+.map:before,
+.map:after {
+  content:"";
+  position:absolute;
+  inset:-40px;
+  background:repeating-linear-gradient(
+    28deg,
+    transparent 0 45px,
+    #fff 46px 49px,
+    transparent 50px 85px
+  );
+  opacity:.8;
+  transform:rotate(-8deg);
+}
+
+.map:after {
+  background:repeating-linear-gradient(
+    105deg,
+    transparent 0 70px,
+    #d7e5cf 71px 73px,
+    transparent 74px 120px
+  );
+  opacity:.65;
+}
+
+.route {
+  position:absolute;
+  z-index:1;
+  left:6%;
+  top:56%;
+  width:87%;
+  height:3px;
+  background:var(--blue);
+  transform:rotate(-13deg);
+  box-shadow:0 0 0 2px #ffffffa8;
+}
+
+.pin {
+  position:absolute;
+  z-index:2;
+  border:3px solid white;
+  border-radius:50%;
+  width:19px;
+  height:19px;
+  box-shadow:0 2px 5px #243c5b55;
+}
+
+.pin.start {
+  left:8%;
+  top:66%;
+  background:var(--green);
+}
+
+.pin.city {
+  left:48%;
+  top:40%;
+  background:var(--blue);
+}
+
+.pin.end {
+  right:8%;
+  top:24%;
+  background:#8494aa;
+}
+
+.map-label {
+  position:absolute;
+  z-index:3;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:7px;
+  padding:5px 8px;
+  font-size:11px;
+  box-shadow:0 2px 5px #1c35501a;
+}
+
+.ml1 { left:5%; top:73%; }
+.ml2 { left:42%; top:28%; }
+.ml4 { right:5%; top:12%; }
+
+.controls {
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+  margin-bottom:13px;
+}
+
+.controls button,
+.btn {
+  border:1px solid #cbdcf0;
+  background:#fff;
+  color:#25517f;
+  border-radius:7px;
+  padding:8px 12px;
+  cursor:pointer;
+  font-weight:600;
+}
+
+.controls button.active,
+.btn.primary {
+  background:var(--blue);
+  border-color:var(--blue);
+  color:white;
+}
+
+.status-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+.rowline {
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 0;
+  border-bottom:1px solid #edf1f6;
+}
+
+.rowline:last-child { border:0; }
+
+.rowline span:first-child { color:var(--muted); }
+
+.rowline strong { text-align:right; }
+
+.battery {
+  height:7px;
+  background:#e3ebf5;
+  border-radius:10px;
+  overflow:hidden;
+  flex:1;
+  margin:7px 0;
+}
+
+.battery i {
+  display:block;
+  height:100%;
+  width:78%;
+  background:var(--green);
+  border-radius:10px;
+}
+
+.timeline {
+  display:grid;
+  gap:0;
+}
+
+.event {
+  display:grid;
+  grid-template-columns:17px 1fr;
+  gap:9px;
+  padding-bottom:16px;
+  position:relative;
+}
+
+.event:not(:last-child):before {
+  content:"";
+  position:absolute;
+  left:6px;
+  top:14px;
+  bottom:0;
+  width:2px;
+  background:#dbe7f4;
+}
+
+.dot {
+  width:13px;
+  height:13px;
+  border-radius:50%;
+  background:var(--green);
+  border:2px solid white;
+  box-shadow:0 0 0 1px var(--green);
+  z-index:1;
+  margin-top:3px;
+}
+
+.dot.warn {
+  background:var(--orange);
+  box-shadow:0 0 0 1px var(--orange);
+}
+
+.dot.pending {
+  background:white;
+  box-shadow:0 0 0 1px #8b9bb1;
+}
+
+.event strong {
+  display:block;
+  font-size:12px;
+}
+
+.event small {
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  margin-top:3px;
+}
+
+.notice {
+  padding:11px;
+  border-radius:8px;
+  background:#fff8e9;
+  border:1px solid #f7dca2;
+  color:#845b12;
+  margin-top:12px;
+  font-size:12px;
+}
+
+.notice.red {
+  background:#fff0f1;
+  border-color:#f5c5ca;
+  color:#a12b36;
+}
+
+.section-title {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.hidden { display:none; }
+
+@media(max-width:1050px) {
+  .app { grid-template-columns:180px 1fr; }
+  .summary { grid-template-columns:repeat(3,1fr); }
+  .layout { grid-template-columns:1fr; }
+  .rightcol { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+@media(max-width:700px) {
+  .app { grid-template-columns:1fr; }
+  .sidebar { padding:12px; gap:12px; }
+  .nav { grid-template-columns:repeat(2,1fr); }
+  .main { padding:14px; }
+  .summary { grid-template-columns:repeat(2,1fr); }
+  .metric {
+    border-right:0;
+    border-bottom:1px solid var(--line);
+  }
+  .rightcol,
+  .status-grid { grid-template-columns:1fr; }
+  .topbar h1 { font-size:20px; }
+  .map { height:220px; }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-icon">◇</span>
+      <div>
+        LogiTrack
+        <small>Seguimiento de paquetes</small>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="active" data-view="seguimiento">⌖　Seguimiento</button>
+      <button data-view="paquetes">▣　Paquetes</button>
+      <button data-view="mapa">▧　Mapa general</button>
+      <button data-view="incidencias">⚠　Incidencias <span id="alertCount"></span></button>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+      <h1 id="pageTitle">Detalle de paquete</h1>
+    </div>
+
+    <div id="trackingView">
+
+      <section class="panel summary">
+        <div class="metric">
+          <div class="label">Identificador</div>
+          <div class="value">PKG-00125</div>
+          <div class="sub">Paquete estándar</div>
+        </div>
+
+        <div class="metric">
+          <div class="label">Origen</div>
+          <div class="value">Almacén central</div>
+          <div class="sub">Recogida · 08:15</div>
+        </div>
+
+        <div class="metric">
+          <div class="label">Destino</div>
+          <div class="value">Cliente final</div>
+          <div class="sub">Entrega pendiente</div>
+        </div>
+
+        <div class="metric">
+          <div class="label">Estado del envío</div>
+          <div class="value">
+            <span class="pill" id="shipmentStatus">En tránsito</span>
+          </div>
+          <div class="sub" id="envSummary">Entorno: carretera</div>
+        </div>
+
+        <div class="metric">
+          <div class="label">Tiempo transcurrido</div>
+          <div class="value">03 h 24 min</div>
+          <div class="sub">Desde la recogida</div>
+        </div>
+      </section>
+
+      <div class="layout">
+
+        <div class="leftcol">
+
+          <section class="panel">
+            <div class="section-title">
+              <h2>Ubicación y recorrido</h2>
+            </div>
+
+            <div class="controls" aria-label="Simular entorno">
+              <button data-env="road" class="active">Carretera</button>
+              <button data-env="urban">Entorno urbano</button>
+              <button data-env="warehouse">Almacén</button>
+              <button data-env="tunnel">Túnel</button>
+            </div>
+
+            <div class="map">
+              <div class="route"></div>
+
+              <span class="pin start"></span>
+              <span class="pin city"></span>
+              <span class="pin end"></span>
+
+              <span class="map-label ml1">
+                Recogida<br>
+                <b>Almacén central</b>
+              </span>
+
+              <span class="map-label ml2" id="mapCurrent">
+                En carretera<br>
+                <b>Última act.: 11:30</b>
+              </span>
+
+              <span class="map-label ml4">
+                Destino<br>
+                <b>Entrega pendiente</b>
+              </span>
+            </div>
+
+            <div id="envNotice" class="notice hidden"></div>
+          </section>
+
+          <div class="status-grid">
+
+            <section class="panel">
+              <h2>Tiempo e historial del envío</h2>
+
+              <div class="timeline">
+                <div class="event">
+                  <i class="dot"></i>
+                  <div>
+                    <strong>Paquete recogido</strong>
+                    <small>08:15 · Almacén de origen</small>
+                  </div>
+                </div>
+
+                <div class="event">
+                  <i class="dot"></i>
+                  <div>
+                    <strong>Salida del almacén</strong>
+                    <small>08:42 · Inicio del transporte</small>
+                  </div>
+                </div>
+
+                <div class="event">
+                  <i class="dot warn"></i>
+                  <div>
+                    <strong>Entrada en túnel</strong>
+                    <small>10:05 · Señal limitada</small>
+                  </div>
+                </div>
+
+                <div class="event">
+                  <i class="dot"></i>
+                  <div>
+                    <strong>Salida del túnel</strong>
+                    <small>10:48 · Comunicación restablecida</small>
+                  </div>
+                </div>
+
+                <div class="event">
+                  <i class="dot pending"></i>
+                  <div>
+                    <strong>Llegada al destino</strong>
+                    <small>Pendiente</small>
+                  </div>
+                </div>
+
+                <div class="event">
+                  <i class="dot pending"></i>
+                  <div>
+                    <strong>Entrega</strong>
+                    <small>Pendiente de confirmar</small>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2>Historial de eventos</h2>
+
+              <div id="eventList">
+                <div class="event">
+                  <i class="dot"></i>
+                  <div>
+                    <strong>Última posición recibida</strong>
+                    <small>11:30 · Carretera</small>
+                  </div>
+                </div>
+
+                <div class="event">
+                  <i class="dot"></i>
+                  <div>
+                    <strong>Dispositivo operativo</strong>
+                    <small>Batería y sensores dentro de los valores esperados</small>
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn" id="refreshBtn">
+                Simular nueva actualización
+              </button>
+            </section>
+
+          </div>
+        </div>
+
+        <div class="rightcol">
+
+          <section class="panel">
+            <h2>Estado de la localización</h2>
+
+            <div class="rowline">
+              <span>Tecnología utilizada</span>
+              <strong id="locTech">GNSS / IMU</strong>
+            </div>
+
+            <div class="rowline">
+              <span>Precisión estimada</span>
+              <strong id="precision">5–10 m</strong>
+            </div>
+
+            <div class="rowline">
+              <span>Última actualización</span>
+              <strong id="lastUpdate">11:30 · hace 12 min</strong>
+            </div>
+
+            <div class="rowline">
+              <span>Posición</span>
+              <strong id="position">Actualizada</strong>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Estado de las comunicaciones</h2>
+
+            <div class="rowline">
+              <span>Tecnología activa</span>
+              <strong id="commTech">4G / LTE-M</strong>
+            </div>
+
+            <div class="rowline">
+              <span>Conexión</span>
+              <strong id="connection">● Disponible</strong>
+            </div>
+
+            <div class="rowline">
+              <span>Mensajes pendientes</span>
+              <strong id="pending">0</strong>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Estado del dispositivo</h2>
+
+            <div class="rowline">
+              <span>Batería</span>
+              <strong>78 %</strong>
+            </div>
+
+            <div class="battery"><i></i></div>
+
+            <div class="rowline">
+              <span>Sensores</span>
+              <strong>✓ Operativos</strong>
+            </div>
+
+            <div class="rowline">
+              <span>Temperatura</span>
+              <strong>22 °C</strong>
+            </div>
+
+            <div class="rowline">
+              <span>Vibraciones</span>
+              <strong>Sin anomalías</strong>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Alertas e incidencias</h2>
+            <div id="alertsText">No hay alertas activas.</div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+
+    <div id="otherView" class="panel hidden">
+      <h2 id="otherTitle">Paquetes</h2>
+
+      <p>
+        Esta vista es una demostración. El prototipo incluye un paquete de
+        ejemplo (PKG-00125) con datos simulados para ilustrar el seguimiento.
+      </p>
+
+      <button class="btn primary" id="backBtn">
+        Volver al seguimiento
+      </button>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const states = {
+  road: {
+    name:'carretera',
+    locTech:'GNSS / IMU',
+    precision:'5–10 m',
+    last:'11:30 · hace 12 min',
+    position:'Actualizada',
+    commTech:'4G / LTE-M',
+    connection:'● Disponible',
+    pending:'0',
+    map:'En carretera',
+    maptime:'Última act.: 11:30',
+    notice:'',
+    alert:'No hay alertas activas.',
+    status:'En tránsito'
+  },
+
+  urban: {
+    name:'entorno urbano',
+    locTech:'GNSS / IMU + estimación',
+    precision:'10–30 m · variable',
+    last:'11:30 · hace 12 min',
+    position:'Estimación con menor fiabilidad',
+    commTech:'4G / 5G',
+    connection:'● Disponible',
+    pending:'0',
+    map:'Entorno urbano',
+    maptime:'Precisión variable',
+    notice:'La presencia de edificios puede degradar la señal GNSS. La posición mostrada es estimada y su precisión puede ser menor.',
+    alert:'Aviso: posible degradación de la precisión de localización.',
+    status:'En tránsito'
+  },
+
+  warehouse: {
+    name:'almacén',
+    locTech:'UWB / Wi-Fi RTT (simulado)',
+    precision:'Interior · según infraestructura',
+    last:'11:34 · hace 8 min',
+    position:'Zona B · Pasillo 04',
+    commTech:'Wi-Fi / red local',
+    connection:'● Disponible',
+    pending:'0',
+    map:'Interior de almacén',
+    maptime:'Zona B · Pasillo 04',
+    notice:'La ubicación interior se muestra como zona y pasillo. Requiere infraestructura de posicionamiento instalada en el almacén.',
+    alert:'No hay alertas activas.',
+    status:'En almacén'
+  },
+
+  tunnel: {
+    name:'túnel',
+    locTech:'Última posición GNSS + IMU',
+    precision:'No garantizada en tiempo real',
+    last:'10:05 · hace 1 h 37 min',
+    position:'Última posición confirmada',
+    commTech:'Sin cobertura exterior',
+    connection:'● Sin conexión',
+    pending:'4',
+    map:'Última posición confirmada',
+    maptime:'Última act.: 10:05',
+    notice:'Sin cobertura, la aplicación conserva la última posición confirmada. Hay 4 mensajes almacenados pendientes de envío; la ubicación podría no ser actual.',
+    alert:'Incidencia: comunicación interrumpida. Los mensajes se sincronizarán cuando se recupere la conexión.',
+    status:'Seguimiento limitado'
+  }
+};
+
+function setEnv(key) {
+  const s = states[key];
+
+  document.querySelectorAll('[data-env]').forEach(button => {
+    button.classList.toggle('active', button.dataset.env === key);
+  });
+
+  document.getElementById('locTech').textContent = s.locTech;
+  document.getElementById('precision').textContent = s.precision;
+  document.getElementById('lastUpdate').textContent = s.last;
+  document.getElementById('position').textContent = s.position;
+  document.getElementById('commTech').textContent = s.commTech;
+  document.getElementById('connection').textContent = s.connection;
+  document.getElementById('pending').textContent = s.pending;
+  document.getElementById('alertsText').textContent = s.alert;
+  document.getElementById('shipmentStatus').textContent = s.status;
+  document.getElementById('envSummary').textContent = 'Entorno: ' + s.name;
+
+  document.getElementById('mapCurrent').innerHTML =
+    s.map + '<br><b>' + s.maptime + '</b>';
+
+  const notice = document.getElementById('envNotice');
+  notice.textContent = s.notice;
+  notice.classList.toggle('hidden', !s.notice);
+  notice.classList.toggle('red', key === 'tunnel');
+
+  document.getElementById('alertCount').textContent =
+    key === 'tunnel' ? ' 1' : '';
+
+  document.getElementById('connection').style.color =
+    key === 'tunnel' ? '#c53543' : '#168653';
+
+  const shipmentStatus = document.getElementById('shipmentStatus');
+
+  shipmentStatus.style.background =
+    key === 'tunnel' ? '#fff0f1' :
+    key === 'warehouse' ? '#eaf2ff' : '#e7f8ef';
+
+  shipmentStatus.style.color =
+    key === 'tunnel' ? '#b62e3b' :
+    key === 'warehouse' ? '#235da9' : '#14834f';
+}
+
+document.querySelectorAll('[data-env]').forEach(button => {
+  button.addEventListener('click', () => setEnv(button.dataset.env));
+});
+
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  const activeButton = document.querySelector('[data-env].active');
+  const key = activeButton ? activeButton.dataset.env : 'road';
+
+  if (key === 'tunnel') {
+    document.getElementById('alertsText').textContent =
+      'Los mensajes siguen pendientes: no hay cobertura disponible para transmitirlos.';
+    return;
+  }
+
+  document.getElementById('lastUpdate').textContent = '11:42 · ahora';
+  document.getElementById('position').textContent = 'Actualizada';
+
+  document.getElementById('mapCurrent').innerHTML =
+    states[key].map + '<br><b>Última act.: 11:42</b>';
+
+  document.getElementById('eventList').insertAdjacentHTML(
+    'afterbegin',
+    '<div class="event"><i class="dot"></i><div>' +
+    '<strong>Actualización simulada</strong>' +
+    '<small>11:42 · ' + states[key].name + '</small>' +
+    '</div></div>'
+  );
+});
+
+document.querySelectorAll('[data-view]').forEach(button => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('[data-view]').forEach(item => {
+      item.classList.toggle('active', item === button);
+    });
+
+    const view = button.dataset.view;
+
+    document.getElementById('trackingView').classList.toggle(
+      'hidden',
+      view !== 'seguimiento'
+    );
+
+    document.getElementById('otherView').classList.toggle(
+      'hidden',
+      view === 'seguimiento'
+    );
+
+    const title =
+      view === 'seguimiento' ? 'Detalle de paquete' :
+      view === 'paquetes' ? 'Paquetes' :
+      view === 'mapa' ? 'Mapa general' : 'Incidencias';
+
+    document.getElementById('pageTitle').textContent = title;
+    document.getElementById('otherTitle').textContent = title;
+  });
+});
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  document.querySelector('[data-view="seguimiento"]').click();
+});
+
+setEnv('road');
+</script>
+</body>
+</html>
